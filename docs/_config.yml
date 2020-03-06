@@ -20,7 +20,7 @@ remote_theme: mmistakes/so-simple-theme
 locale: en-US
 title: "Liam's 學習心得"
 description: "A simple Jekyll theme for words and pictures."
-baseurl: "/so-simple-theme"
+baseurl: "/liam-simple-notes"
 url: "https://mmistakes.github.io"
 logo: "/images/so-simple-site-logo.png"
 date_format: "%B %-d, %Y"
@@ -112,16 +112,9 @@ author:
   name: Michael Rose
   picture: /images/michael-rose-photo.jpg
   email:
-  twitter: mmistakes
   links:
-    - title: Twitter
-      url: https://twitter.com/mmistakes
-      icon: fab fa-twitter-square
-    - title: Instagram
-      url: https://instagram.com/mmistakes
-      icon: fab fa-instagram
     - title: GitHub
-      url: https://github.com/mmistakes
+      url: https://github.com/scryed0204
       icon: fab fa-github-square
 
 # Footer Links
