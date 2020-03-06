@@ -18,7 +18,7 @@
 remote_theme: mmistakes/so-simple-theme
 
 locale: en-US
-title: "So Simple"
+title: "Liam's 學習心得"
 description: "A simple Jekyll theme for words and pictures."
 baseurl: "/so-simple-theme"
 url: "https://mmistakes.github.io"
