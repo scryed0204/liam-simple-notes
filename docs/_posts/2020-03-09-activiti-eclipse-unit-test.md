@@ -7,8 +7,6 @@ tags:
 
 簡介Activiti以及其開發環境的建置。
 
-{% include toc %}
-
 ##  淺談BPMN
 BPMN是Business Process Model and Notation的縮寫，可以翻譯成「業務流程模型與標記法」，是用於表現「業務流程」的圖型化標準，如下圖:
 ![image-center]({{ '/images/20190619175852.PNG' | absolute_url }}){: .align-center}
