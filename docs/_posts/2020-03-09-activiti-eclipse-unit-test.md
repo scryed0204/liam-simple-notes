@@ -6,7 +6,7 @@ tags:
 ---
 
 簡介Activiti以及其開發環境的建置。
-
+<!--more-->
 
 {% include toc %}
 

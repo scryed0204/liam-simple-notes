@@ -131,3 +131,5 @@ footer_links:
   - title: Feed
     url: atom.xml
     icon: fas fa-rss-square
+    
+excerpt_separator: <!--more-->
