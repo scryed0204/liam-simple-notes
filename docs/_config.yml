@@ -18,11 +18,11 @@
 remote_theme: mmistakes/so-simple-theme
 
 locale: en-US
-title: "Liam's 學習心得"
-description: "A simple Jekyll theme for words and pictures."
+title: "Liam's Notes"
+description: "A simple blog, for simple shares."
 baseurl: "/liam-simple-notes"
 url: "https://scryed0204.github.io"
-logo: "/images/so-simple-site-logo.png"
+logo: "/images/ugandanknuck.jpg"
 date_format: "%B %-d, %Y"
 read_time: true
 words_per_minute: # 200
