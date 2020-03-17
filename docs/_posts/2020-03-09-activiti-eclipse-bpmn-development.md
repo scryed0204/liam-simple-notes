@@ -89,7 +89,9 @@ Eclipse是許多java開發者會選擇使用的IDE，而Alfresco針對Eclipse提
 ```
 
 將流程變數定義好了之後，我們可以在一些地方馬上引用這些變數：
-1. 設定User Task的受理人(Assignee)：
+
+1.設定User Task的受理人(Assignee)
+ 
    自開始事件(Start Event)中的表單屬性中取得了三種角色的人員資訊後，就可以把這些變數設定到對應的User Task中，其設定位置在Properties -> Main config -> Assignee欄位，以${變數名稱}的表示填入，如下圖：
 ![image-center]({{ '/images/20200309/20190623175049.PNG'| absolute_url }}){: .align-center}
    以XML格式呈現的樣貌如下：
@@ -102,5 +104,7 @@ Eclipse是許多java開發者會選擇使用的IDE，而Alfresco針對Eclipse提
 </userTask>
 ```
 
-2. 設定判斷條件(Condition)：前面在繪製此流程圖就已經知道，流程在通過閘道(Gateway)時是只會選擇一條路來走的(因為用的都是排它型的閘道)，為了要讓Activiti知道流程離開閘道時到底要沿著哪條線移動，我們就必須定義判斷條件(Condition)，此內容必須設置在自閘道延伸出來的線段上，可以在Properties -> Main config -> Condition來進行設定，以${判斷式}的表示式填入，如下圖：
+2.設定判斷條件(Condition)
+
+   前面在繪製此流程圖就已經知道，流程在通過閘道(Gateway)時是只會選擇一條路來走的(因為用的都是排它型的閘道)，為了要讓Activiti知道流程離開閘道時到底要沿著哪條線移動，我們就必須定義判斷條件(Condition)，此內容必須設置在自閘道延伸出來的線段上，可以在Properties -> Main config -> Condition來進行設定，以${判斷式}的表示式填入，如下圖：
 ![image-center]({{ '/images/20200309/20190623175717.PNG'| absolute_url }}){: .align-center}
