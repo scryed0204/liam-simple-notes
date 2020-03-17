@@ -58,5 +58,49 @@ Eclipse是許多java開發者會選擇使用的IDE，而Alfresco針對Eclipse提
 
 | 圖型   | 名稱   | 意義                                                         |
 |------- |--------|--------------------------------------------------------------|
-| ![image-center]({{ '/images/20200309/20190623172041.PNG'| absolute_url }}){: .align-center}   | Start Event 開始事件   | 一般的流程開始事件，無特殊觸發條件，由使用者呼叫api來啟動流程時的開始點。|
+| ![image-center]({{ '/images/20200309/20190623172041.PNG'| absolute_url }}){: .align-center}   | Start Event 開始事件 | 一般的流程開始事件，無特殊觸發條件，由使用者呼叫api來啟動流程時的開始點。|
+| ![image-center]({{ '/images/20200309/20190623172108.PNG'| absolute_url }}){: .align-center}   | End Event 結束事件 | 表示流程正常結束的事件。如果一個流程有分支產生且各自有自己流程上的結束事件時，則要等全部的結束事件都到達此流程才算真的結束。|
+| ![image-center]({{ '/images/20200309/20190623172126.PNG'| absolute_url }}){: .align-center}   | Terminate End Event 終止結束事件 | 表示流程被強制終止的事件。如果流程有開啟分支，走入這個事件則全部分歧都被終止。|
+| <img src="{{site.baseurl}}/images/20200309/20190623172236.PNG" alt="image-center" class="align-center" width="300" />  | User Task 人工任務 | 一個流程最主要的構成元素就是活動(Activity)，而User Task便是其中一種活動，此種活動需要有一個受理人或受理的群組來承辦，Activiti會依照設定產生一個或多個待辦任務。|
+| ![image-center]({{ '/images/20200309/20190623172333.PNG'| absolute_url }}){: .align-center}  | Exclusive Gateway 單一(排它)閘道 | 閘道表示流程的決策點，判斷接下來流程要怎麼走，也依照性質分有不同的閘道，此範例皆使用「排它(Exclusive)」的閘道，會限制流程經過閘道後只會往一條線移動。|
 
+## 定義流程變數與表單屬性
+在把流程圖繪製好了以後，為了要讓Activiti可以正確解讀流程怎麼運作，我們還需要定義好其他必要的資訊，首先要規劃「流程變數」有哪些。以此需求為例，在起案時，我們至少必須告訴Activiti起案人的資訊、直屬主管的資訊、經理的資訊與案件的金額；而在各個User Task時，各個使用者必須告訴Activiti審核結果是什麼；如果是退回到了申請人時，由於申請人可以調整案件內容，所以還能再提供一次案件金額。因此依照上述的內容，我們可以規劃出下列流程變數：
+1. initiator -   起案人資訊(起案時提供)
+2. supervisor  - 直屬主管資訊(起案時提供)
+3. manager - 經理資訊(起案時提供)
+4. amount - 案件金額(起案時與申請人調整時提供)
+5. decision  - 審核結果(各個User Task提供)
+
+規劃好流程變數之後，開發者就可以利用Plugin圖型介面中的Properties功能來定義表單屬性(Form Properties)，如下圖：
+![image-center]({{ '/images/20200309/20190623174153.PNG'| absolute_url }}){: .align-center}
+
+由於流程圖檔(.bpmn)的內容其實為XML格式，我們可以用相關編輯器開啟。以下為新增好表單屬性後，將「開始事件(Start Event)」以XML格式呈現出來的樣貌：
+```xml
+<startEvent id="startevent1" name="Start">
+  <extensionElements>
+	<activiti:formProperty id="initiator" name="起案人" type="string" variable="initiator" required="true"></activiti:formProperty>
+	<activiti:formProperty id="supervisor" name="直屬主管" type="string" variable="supervisor" required="true"></activiti:formProperty>
+	<activiti:formProperty id="manager" name="經理" type="string" variable="supervisor" required="true"></activiti:formProperty>
+	<activiti:formProperty id="amount" name="金額" type="long" variable="amount" required="true"></activiti:formProperty>
+	<activiti:executionListener event="start" class="org.activiti.example.bpmn.listener.ExampleStartEventListener"></activiti:executionListener>
+  </extensionElements>
+</startEvent>
+```
+
+將流程變數定義好了之後，我們可以在一些地方馬上引用這些變數：
+1. 設定User Task的受理人(Assignee)：
+   自開始事件(Start Event)中的表單屬性中取得了三種角色的人員資訊後，就可以把這些變數設定到對應的User Task中，其設定位置在Properties -> Main config -> Assignee欄位，以${變數名稱}的表示填入，如下圖：
+![image-center]({{ '/images/20200309/20190623175049.PNG'| absolute_url }}){: .align-center}
+   以XML格式呈現的樣貌如下：
+
+```xml
+<userTask id="directSupervisorReview" name="直屬主管審核" activiti:assignee="${supervisor}">
+  <extensionElements>
+    <activiti:formProperty id="decision" name="決議" type="string" variable="decision" required="true"></activiti:formProperty>
+  </extensionElements>
+</userTask>
+```
+
+2. 設定判斷條件(Condition)：前面在繪製此流程圖就已經知道，流程在通過閘道(Gateway)時是只會選擇一條路來走的(因為用的都是排它型的閘道)，為了要讓Activiti知道流程離開閘道時到底要沿著哪條線移動，我們就必須定義判斷條件(Condition)，此內容必須設置在自閘道延伸出來的線段上，可以在Properties -> Main config -> Condition來進行設定，以${判斷式}的表示式填入，如下圖：
+![image-center]({{ '/images/20200309/20190623175717.PNG'| absolute_url }}){: .align-center}
