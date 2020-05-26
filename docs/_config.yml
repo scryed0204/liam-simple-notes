@@ -25,7 +25,7 @@ url: "https://scryed0204.github.io"
 logo: "/images/ugandanknuck.jpg"
 date_format: "%B %-d, %Y"
 read_time: true
-words_per_minute: # 200
+words_per_minute: 50
 mathjax:
   enable: true
   combo: "tex-svg"

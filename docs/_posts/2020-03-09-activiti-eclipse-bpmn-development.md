@@ -19,8 +19,8 @@ BPMN是Business Process Model and Notation的縮寫，可以翻譯成「業務�
 Activiti是一套用java開發的開源流程引擎，它根據BPMN 2.0的規範實作出商業流程管理之解決方案，讓使用者可以針對企業流程做集中化的管理。在實際應用面上，開發者把Activiti的相關jar與對應的資料庫資訊定義好了以後，便可以把寫好的流程定義檔(.bpmn)透過它的API佈署上去，未來使用者就可以透過它的API加上流程定義的key值與Activiti溝通，來讓Activiti幫忙控管流程動向與歷史記錄。
 
 本文著重在介紹以Java開發者的角度如何建置一個開發環境，用一個簡單的需求來當作範例，介紹用Eclipse來編輯它的流程圖檔(.bpmn)，並寫一支單元測試來執行它，同時認識怎麼使用Activiti的核心API。至於BPMN 2.0完整的規範以及Activiti 引擎的完整的API功能，在此並不會做全盤的介紹，有興趣的請參考以下網站
-  1. BPMN 2.0 規範 － [OMG協會網站](﻿https://www.omg.org/index.htm "OMG協會網站")
-  2. Activiti完整功能介紹 － [Activiti User Guide](﻿https://www.activiti.org/userguide/ "Activiti User Guide")
+  1. BPMN 2.0 規範 － [OMG協會網站](https://www.omg.org/index.htm "OMG協會網站")
+  2. Activiti完整功能介紹 － [Activiti User Guide](https://www.activiti.org/userguide/ "Activiti User Guide")
 
 ##  Eclipse安裝Plugin
 Eclipse是許多java開發者會選擇使用的IDE，而Alfresco針對Eclipse提供了Activiti BPMN Designer這個外掛，讓開發者們可以用圖型介面來設計流程定義檔(副檔名為.bpmn)。如果用文字編輯器打開.bpmn的話，會發現它是由XML語言格式的檔案，透過Activiti引擎能將它解讀成可實際運作的流程定義，在完持佈署後即可透過API起案，產生流程實體與相關任務實體…等等。 
@@ -108,3 +108,231 @@ Eclipse是許多java開發者會選擇使用的IDE，而Alfresco針對Eclipse提
 
    前面在繪製此流程圖就已經知道，流程在通過閘道(Gateway)時是只會選擇一條路來走的(因為用的都是排它型的閘道)，為了要讓Activiti知道流程離開閘道時到底要沿著哪條線移動，我們就必須定義判斷條件(Condition)，此內容必須設置在自閘道延伸出來的線段上，可以在Properties -> Main config -> Condition來進行設定，以${判斷式}的表示式填入，如下圖：
 ![image-center]({{ '/images/20200309/20190623175717.PNG'| absolute_url }}){: .align-center}
+
+   以XML格式呈現的樣貌如下：
+```xml
+<sequenceFlow id="flow6" name="金額大於10萬" sourceRef="e_gateway_supervisor" targetRef="managerReview">  
+  <conditionExpression xsi:type="tFormalExpression"><![CDATA[${decision == "approve" && amount > 100000}]]></conditionExpression>  
+</sequenceFlow>
+```
+
+## 定義監聽器(Listener)
+假設本範例多了一項需求：「需要計算案件被退回到申請人的次數」，要達到這個需求當然有很多方式，但如果要用Activiti來處理，那首先想到的，就是要在流程中多定義一項流程變數來記錄這個資訊，不過，這個變數資訊並不需要由表單屬性(Form Properties)來傳達給Activiti，而是由Activiti自行計算，那要怎麼把這樣的邏輯設定到流程圖中呢? 這就需要定義監聽器(Listener)了。   
+
+如果要定義並撰寫Listener，就必需要新增一些java類別到我們的專案中，而這些類別必須去實作Activiti API的介面，這些介面包括了ExecutionListener與 TaskListener，至於要選哪一項來實作，則要看Listener是要掛在什麼地方。
+備註：如果在實際佈署Activiti服務的時候，會需要把這些Listener建置成.jar再放到classpath中。
+
+在這邊我們先新增一支ExampleStartEventListener，它實作了ExecutionListener這個介面，在notify(DelegateExecution execution)的方法中我們可以去寫我們要的邏輯，請見下列程式碼：
+```java
+package org.activiti.example.bpmn.listener;
+
+import org.activiti.engine.delegate.DelegateExecution;
+import org.activiti.engine.delegate.ExecutionListener;
+
+@SuppressWarnings("serial")
+public class ExampleStartEventListener implements ExecutionListener {
+	
+	@Override
+	public void notify(DelegateExecution execution) throws Exception {
+		execution.setVariable("rejectCnt", 0);//設定流程變數rejectCnt，值為0
+	}
+}
+```
+上面這支Listener的邏輯很簡單，我們透過方法傳入之DelegateExecution物件，利用其提供之API來設定流程變數rejectCnt到流程實體中，並且值設為0。至於Execution是什麼東西呢？可以把它想成是流程執行的線路，一個流程實體可能對應了一個或多個Execution(端看有沒有開分支)，因此對於一個流程中的各個節點來說Execution也可以視為執行的環境，透過它的API，我們可以對流程相關的資訊做操作，詳細的定義可以參閱Activiti的官方文件內容。
+
+新增完Listener的程式碼以後，我們可以在Plugin的圖形介面中，點擊我們要掛載Listener的節點，然後Properties -> Listeners -> New 去新增這支Listener的class以進行掛載，下圖就是把ExampleStartEventListener加到Start Event上：
+![image-center]({{ '/images/20200309/20190624140321.PNG'| absolute_url }}){: .align-center}
+
+依照同樣的做法，再新增另外一支Listener，這次是要掛載到User Task「使用者調整」上，程式碼如下：
+```java
+package org.activiti.example.bpmn.listener;
+
+import org.activiti.engine.delegate.DelegateTask;
+import org.activiti.engine.delegate.TaskListener;
+
+@SuppressWarnings("serial")
+public class ExampleInitiatorReviewListener implements TaskListener {	
+
+	@Override
+	public void notify(DelegateTask delegateTask) {
+		Integer rejectCnt = (Integer)delegateTask.getVariable("rejectCnt");
+		if (null != rejectCnt) {
+			rejectCnt++;
+			delegateTask.setVariable("rejectCnt", rejectCnt);
+		}
+	}
+}
+```
+
+和前一個Listener不同的是，因為它是要掛載在Task的節點上，所以選擇實作TaskListener此介面，但其他作法則幾乎完全一樣，程式碼的內容也很簡單，就是把rejectCnt的變數值先取出後+1，然後再存回去。而掛載的方式與前一個Listener差不多，請見下圖：
+![image-center]({{ '/images/20200309/20190624140628.PNG'| absolute_url }}){: .align-center}
+
+上圖中請注意，Event欄位的值要設定為Create，這樣就是在進入這個User Task時會觸發Listener，如果是要在User Task完成時才觸發，Event的值就要設為End。
+
+## 單元測試
+依據前面的步驟，我們應該能建立一支符合需求且能運作的流程圖(.bpmn)了，接下來就是要測測看它的功能正不正常，包括把它餵給Activiti引擎，以及進行起案、簽核與結案等作業，為了要方便測試這些功能，因此我們需要把單元測試的環境配置好，這樣我們就能輕鬆的撰寫我們需要的單元測試。
+
+這邊提供一個簡易的方法，其實我們安裝的Activiti BPMN Designer已經有整合IDE來自動生成單元測試了，我們只要在專案目錄下，找到流程圖檔，對它點擊右鍵->Activiti -> Generate unit test，測試程式碼就會被產生出來了，如下圖：
+![image-center]({{ '/images/20200309/20190625105430.png'| absolute_url }}){: .align-center}
+
+而自動生成的單元測試程式碼，主要內容如下(微調過檔案路徑)：
+```java
+public class ProcessTestExampleProcess {
+
+	private String filename = "src\\main\\resources\\diagrams\\ExampleProcess.bpmn";
+
+	@Rule
+	public ActivitiRule activitiRule = new ActivitiRule();
+
+	@Test
+	public void startProcess() throws Exception {
+		RepositoryService repositoryService = activitiRule.getRepositoryService();
+		repositoryService.createDeployment().addInputStream("ExampleProcess.bpmn20.xml",
+				new FileInputStream(filename)).deploy();
+		RuntimeService runtimeService = activitiRule.getRuntimeService();
+		Map<String, Object> variableMap = new HashMap<String, Object>();
+		variableMap.put("name", "Activiti");
+		ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("ExampleProcess", variableMap);
+		assertNotNull(processInstance.getId());
+		System.out.println("id " + processInstance.getId() + " "
+				+ processInstance.getProcessDefinitionId());
+	}
+}
+```
+
+如上，一支單元測試就建好了，它裡面有使用到二項Activiti的核心API：RepositoryService與RuntimeService，RepositoryService在這裡負責讀取流程圖檔來進行流程的佈署，而RuntimeService負責了起案以產生流程實體，到這邊可能有人會有ㄧ個疑問，前面不是有說過Activiti需要有資料庫，那為什麼我們都不需要定義連線資訊呢? 這是因為Activiti本身有使用H2 in-memory database，因此執行單元測試時不強制需要外部資料庫。接下來我們來逐步檢視並調整這支程式，以達到完整的功能邏輯測試。
+
+取得需要的API服務
+: 對於Activiti引擎的操作，大附份就是要透過它的核心API，因此我們可以先自ActivitiRule物件來取得，如下程式碼：
+```java
+RepositoryService repositoryService = activitiRule.getRepositoryService(); //佈署流程圖
+RuntimeService runtimeService = activitiRule.getRuntimeService(); //起案
+TaskService taskService = activitiRule.getTaskService(); //待辦關卡查詢
+FormService formService = activitiRule.getFormService(); //待辦關卡送出表單簽核
+HistoryService historyService = activitiRule.getHistoryService(); //流程完成後之歷史資料查詢
+```
+
+或者我們也可以自ProcessEngine取得，如下程式碼：
+```java
+ProcessEngine processEngine = ProcessEngineConfiguration.createProcessEngineConfigurationFromResourceDefault().buildProcessEngine();
+
+RepositoryService repositoryService = processEngine.getRepositoryService(); //佈署流程圖
+RuntimeService runtimeService = processEngine.getRuntimeService(); //起案
+TaskService taskService = processEngine.getTaskService(); //待辦關卡查詢
+FormService formService = processEngine.getFormService(); //待辦關卡送出表單簽核
+HistoryService historyService = processEngine.getHistoryService(); //流程完成後之歷史資料查詢
+```
+
+如果我們點入ActivityRule看它的原始碼，其實它也是在做ProcessEngine的建置，然後把相關服務物件初始化，有興趣可以看看ActivityRule怎麼處理的。
+
+佈署流程圖(.bpmn)
+: 如下程式碼，利用RepositoryService讀取流程圖後，再儲存到資料庫中，已完成佈署的動作。附帶一提，佈署進去的檔案資源名稱我們這邊是可以再定義的，這邊的副檔名是改用.bpmn20.xml(符合bpmn 2.0規範之xml檔)，用.bpmn20.xml或.bpmn以外的副檔名可能會無法正常運作。
+
+```java
+//佈署流程圖(.bpmn)
+String filename = "src\\main\\resources\\diagrams\\ExampleProcess.bpmn";
+StringBuilder flowHistory = new StringBuilder();
+repositoryService.createDeployment().addInputStream("ExampleProcess.bpmn20.xml", new FileInputStream(filename)).deploy();
+```
+
+產生流程實體(ProcessInstance)
+: 流程圖佈署完成後，即可用流程圖id進行起案，產生流程實體。記得我們在流程圖的Start Event有在表單(Form Properties)定義一些流程變數嗎?
+這邊可以用一個Map集合來把這些資訊包起來，當成Payload，一同透過RuntimeService來進行起案，在成功起案後，可以拿到一個流程實體的id，之後就可以透過此id對流程進行操作，詳細請見以下程式碼：
+
+```java
+//起案時需要提供的表單屬性(流程變數)
+Map<String, Object> variableMap = new HashMap<String, Object>();
+variableMap.put("initiator", "Tang");
+variableMap.put("supervisor", "Bryan");
+variableMap.put("manager", "King");
+variableMap.put("amount", "150000");
+//起案產生流程實體
+ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("ExampleProcess", variableMap);
+assertNotNull(processInstance.getId());
+String processInstId = processInstance.getId();
+System.out.println(String.format("起案產生流程實體(id=%s)", processInstId));
+```
+
+關卡簽核
+: 有了流程實體以後，我們先用TaskService取得目前的待辦關卡為何，如下，拿到Task物件，目前的待辦關卡為直屬主管審核：
+
+```java
+// 查詢目前所在關卡(直屬主管審核)
+Task task = taskService.createTaskQuery().processInstanceId(processInstId).singleResult();
+System.out.println(task.getName() + "/" + task.getAssignee()); //印出：直屬主管審核/Bryan
+```
+
+接下來，我們可以將關卡簽核的邏輯獨立出來，把相關資訊參數化，宣告一個關卡簽核的方法：
+
+```java
+/**
+ * 關卡簽核
+ * @param task 待簽核關卡
+ * @param properties 表單屬性資訊
+ * @return 新的待辦關卡
+ */
+private Task completeTask(Task task, Map<String, String> properties) {
+	FormService formService = activitiRule.getFormService();
+	TaskService taskService = activitiRule.getTaskService();
+	formService.submitTaskFormData(task.getId(), properties);
+	return taskService.createTaskQuery().processInstanceId(task.getProcessInstanceId()).singleResult();
+}
+```
+
+最後假設直屬主管決定審核通過，我們就設定表單屬性decision=approve來完成簽核，如下程式碼：
+
+```java
+Map<String, String> properties = new HashMap<String, String>(); //關卡要送出的表單屬性資訊
+properties.put("decision", "approve"); //審核結果：核准		
+task = completeTask(task, properties); //送簽(直屬主管審核)，取得下一關(經理審核)
+System.out.println(task.getName() + "/" + task.getAssignee()); //印出：經理審核/King
+flowHistory.append(" -> " + task.getName());
+```
+
+現在到了經理審核關卡，假設他決定退回給申請人，因此設定表單屬性decision=reject來完成簽核，如下程式碼：
+
+```java
+// 目前關卡：經理審核
+properties = new HashMap<String, String>(); //關卡要送出的表單屬性資訊
+properties.put("decision", "reject"); //審核結果：退回
+task = completeTask(task, properties); //送簽(經理審核)，取得下一關(申請人調整)
+System.out.println(task.getName() + "/" + task.getAssignee()); //印出：申請人調整/Tang
+```
+
+退回到申請人調整的關卡後，假設申請人調整了金額重送，如下程式碼設定表單屬性：
+
+```java
+// 目前關卡：申請人調整
+properties = new HashMap<String, String>(); //關卡要送出的表單屬性資訊
+properties.put("decision", "approve"); //審核結果：核准
+properties.put("amount", "50000"); // 調整金額<100000
+System.out.println(task.getName() + "/" + task.getAssignee()); //直屬主管審核/Bryan
+task = completeTask(task, properties); //送簽(申請人調整)，取得下一關(直屬主管審核)
+```
+
+現在又重新回到了直屬主管審核關卡，由於目前金額調整後少於100000元，因此這關簽核結束以後，就應該沒有下一關了，請見以下程式碼：
+
+```java
+// 直屬主管審核 (第2次)
+properties = new HashMap<String, String>(); //關卡要送出的表單屬性資訊
+properties.put("decision", "approve"); //審核結果：核准
+task = completeTask(task, properties); //送簽(直屬主管審核)，流程結束沒有下一關
+assertNull(task); //沒有下一關
+```
+
+查詢歷史資料
+: 流程結束以後，該流程實體的相關資訊可用HistoryService來查詢，如下程式碼：
+
+```java
+// 查詢已完成流程實體id
+List<HistoricProcessInstance> finishedProcessInstList = historyService.createHistoricProcessInstanceQuery().finished().list();
+assertNotNull(finishedProcessInstList);
+assertEquals(processInstId, finishedProcessInstList.get(0).getId());
+
+// 找出流程變數rejectCnt的值
+Object finalRejectCnt = historyService.createHistoricVariableInstanceQuery().processInstanceId(processInstId).variableName("rejectCnt").singleResult().getValue();
+System.out.println(String.format("流程實體已結案(id=%s)，案件被退回次數為%d次", finishedProcessInstList.get(0).getId(), (Integer) finalRejectCnt));
+```
+
+## 範例實作
+歡迎到此[github連結](https://github.com/scryed0204/ActivitiExample/ "Activiti Example")取得範例內容，提供參考。
